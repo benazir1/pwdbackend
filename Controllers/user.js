@@ -107,7 +107,7 @@ module.exports.forgotpassword = async (req, res) => {
     from: 'noorulshihabudeen@gmail.com',
     to: req.body.email,
     subject: 'Reset your password',
-    text: `http://localhost:5173/reset-password/${user._id}/${token}`
+    text: `https://spectacular-liger-e3a997.netlify.app/reset-password/${user._id}/${token}`
   };
   
   transporter.sendMail(mailOptions, function(error, info){
