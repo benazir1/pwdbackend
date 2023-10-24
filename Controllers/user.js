@@ -9,7 +9,7 @@ const jwt = require("jsonwebtoken");
 module.exports.signup = async (req, res) => {
     const { email, password } = req.body;
   
-    const hashedPassword = await bcrypt.hash(password, 2);
+    const hashedPassword = await bcrypt.hash(password, 10);
   
     const user = new UserModel({ email, password: hashedPassword });
   
@@ -45,74 +45,32 @@ module.exports.signin = async (req, res) => {
   
     const token = jwt.sign({ email: user.email }, process.env.SECRET_KEY, {
       expiresIn: "1h",
+        
     });
   
-    res.json({ token });
+    res.json({ token,email });
   }
 
 
 
-module.exports.sendotp = async (req,res) =>{
-    console.log(req.body);
-    const _otp = Math.floor(100000+ Math.random() *900000)
-   console.log(_otp);
-
-   let user = await  UserModel.findOne({ email: req.body.email})
-   if(!user){
-    res.send({ code: 500, message: 'user not found' })
-   }
-   let testAccount = await nodemailer.createTestAccount()
-
-    let transporter = nodemailer.createTransport({
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false,
-        auth: {
-            user: testAccount.user,
-            pass: testAccount.pass
-        }
-    })
-     let info = await transporter.sendMail({
-       from: 'benazir1989@gmail.com',
-        to: req.body.email, // list of receivers
-        subject: "OTP", // Subject line
-        text: String(_otp),
-        html: `<html>
-            < body >
-            Hello and welcome
-        </ >
-       </html > `,
-    })
-if (info.messageId) {
-
-        console.log(info, 84)
-        UserModel.updateOne({ email: req.body.email }, { otp: _otp })
-            .then(result => {
-                res.send({ code: 200, message: 'otp send' })
-            })
-            .catch(err => {
-                res.send({ code: 500, message: 'Server err' })
-
-            })
-
-    } else {
-        res.send({ code: 500, message: 'Server err' })
-    }
-}   
 
 
 
-module.exports.submitotp = async (req, res) => {
+  module.exports.resetpassword = async (req, res) => {
     console.log(req.body)
+    const{id,token} =req.params;
     const { password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 2);
-   //  const pwd = new UserModel({ password: hashedPassword });
 
-    UserModel.findOne({ otp: req.body.otp }).then(result => {
-
-        //  update the password 
-        
-        UserModel.updateOne({ email: result.email }, { password: hashedPassword })
+    const hashedPassword =await  bcrypt.hash(password, 10);
+   jwt.verify(token, process.env.SECRET_KEY, (err,decoded)=>{
+     console.log(hashedPassword)
+      if(err){
+        return res.json({status:"Error with token"})
+      }
+      
+       
+          
+        UserModel.findByIdAndUpdate({_id:id} , { password: hashedPassword })
             .then(result => {
                 res.send({ code: 200, message: 'Password updated' })
             })
@@ -121,11 +79,42 @@ module.exports.submitotp = async (req, res) => {
 
             })
 
-
-    }).catch(err => {
-        res.send({ code: 500, message: 'otp is wrong' })
-
+         
     })
+  
+}
+
+module.exports.forgotpassword = async (req, res) => {
+  const {email} =req.body;
+  const user = await UserModel.findOne({ email });
 
 
+  if (!user) {
+    return res.status(401).json({ message: "user not exits" });
+  }
+  const token = jwt.sign({id:user._id},process.env.SECRET_KEY,{expiresIn:"1h"});
+
+
+  var transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.USER,
+      pass: process.env.PASS
+    }
+  });
+  
+  var mailOptions = {
+    from: 'noorulshihabudeen@gmail.com',
+    to: req.body.email,
+    subject: 'Reset your password',
+    text: `http://localhost:5173/reset-password/${user._id}/${token}`
+  };
+  
+  transporter.sendMail(mailOptions, function(error, info){
+    if (error) {
+      console.log(error);
+    } else {
+      res.send({ code: 200, message: 'success' })
+    }
+  });
 }
